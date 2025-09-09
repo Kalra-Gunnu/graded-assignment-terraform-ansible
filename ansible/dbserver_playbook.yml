@@ -1,0 +1,61 @@
+---
+- name: Configure Database Server with MongoDB
+  hosts: dbserver
+  become: yes
+  tasks:
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    - name: Install gnupg for key management
+      apt:
+        name: gnupg
+        state: present
+
+    # --- START OF NEW TASKS ---
+    - name: Download libssl1.1 dependency
+      get_url:
+        url: http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+        dest: /tmp/libssl1.1.deb
+        mode: '0644'
+
+    - name: Install libssl1.1 dependency
+      apt:
+        deb: /tmp/libssl1.1.deb
+    # --- END OF NEW TASKS ---
+
+    - name: Import MongoDB public GPG Key
+      apt_key:
+        url: https://www.mongodb.org/static/pgp/server-6.0.asc
+        state: present
+
+    - name: Add MongoDB repository
+      apt_repository:
+        repo: "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse"
+        state: present
+        filename: mongodb-org-6.0
+
+    - name: Install MongoDB
+      apt:
+        name: mongodb-org
+        state: present
+        update_cache: yes
+
+    - name: Configure MongoDB to listen on all interfaces
+      lineinfile:
+        path: /etc/mongod.conf
+        regexp: '^  bindIp'
+        line: '  bindIp: 0.0.0.0'
+      notify: Restart mongod
+
+    - name: Ensure mongod service is started and enabled
+      systemd:
+        name: mongod
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart mongod
+      systemd:
+        name: mongod
+        state: restarted

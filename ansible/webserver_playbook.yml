@@ -1,0 +1,135 @@
+- name: Configure Web Server and Deploy MERN App
+  hosts: webserver
+  become: yes
+  tasks:
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Add Node.js repository
+      shell: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+
+    - name: Install Node.js and NPM
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+
+    - name: Clone TravelMemory app repository
+      git:
+        repo: 'https://github.com/UnpredictablePrashant/TravelMemory.git'
+        dest: /home/ubuntu/TravelMemory
+        force: yes
+      become: no
+
+    - name: Install backend dependencies
+      npm:
+        path: /home/ubuntu/TravelMemory/backend
+      become: no
+
+
+
+    - name: Remove hardcoded localhost:3001 from url.js
+      replace:
+        path: /home/ubuntu/TravelMemory/frontend/src/url.js
+        regexp: 'http://localhost:3001'
+        replace: ''
+      become: no
+
+    - name: Set frontend API URLs to relative for Nginx proxy
+      copy:
+        dest: /home/ubuntu/TravelMemory/frontend/.env
+        content: |
+          REACT_APP_API_URL=/trip
+          REACT_APP_BACKEND_URL=/trip
+      become: no
+
+
+
+    - name: Build React app
+      command: npm run build
+      args:
+        chdir: /home/ubuntu/TravelMemory/frontend
+      become: no
+
+    - name: Copy React build to /var/www
+      copy:
+        src: /home/ubuntu/TravelMemory/frontend/build/
+        dest: /var/www/
+        owner: www-data
+        group: www-data
+        mode: '0755'
+        remote_src: yes
+
+    - name: Configure Nginx to serve React frontend and proxy API
+      copy:
+        dest: /etc/nginx/sites-available/travelmemory
+        content: |
+          server {
+            listen 80;
+            server_name _;
+            root /var/www;
+            index index.html index.htm;
+
+            location /trip/ {
+              proxy_pass http://localhost:3001/trip/;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection 'upgrade';
+              proxy_set_header Host $host;
+              proxy_cache_bypass $http_upgrade;
+            }
+
+            location / {
+              try_files $uri /index.html;
+            }
+          }
+      notify: Reload Nginx
+
+    - name: Enable Nginx site and remove default
+      shell: |
+        ln -sf /etc/nginx/sites-available/travelmemory /etc/nginx/sites-enabled/travelmemory
+        rm -f /etc/nginx/sites-enabled/default
+      notify: Reload Nginx
+
+    - name: Create .env file for the backend
+      template:
+        src: templates/.env.j2
+        dest: /home/ubuntu/TravelMemory/backend/.env
+      become: no
+
+    - name: Ensure backend listens on 0.0.0.0
+      replace:
+        path: /home/ubuntu/TravelMemory/backend/index.js
+        regexp: "localhost"
+        replace: "0.0.0.0"
+      become: no
+
+    - name: Start or restart the application with PM2
+      shell: pm2 restart /home/ubuntu/TravelMemory/backend/index.js --name TravelMemoryApp || pm2 start /home/ubuntu/TravelMemory/backend/index.js --name TravelMemoryApp
+      args:
+        chdir: /home/ubuntu/TravelMemory/backend
+      become: no
+      environment:
+        NODE_ENV: production
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
