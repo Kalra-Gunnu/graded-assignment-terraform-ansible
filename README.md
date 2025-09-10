@@ -14,6 +14,21 @@ This project automates the deployment of a **MERN stack application** (MongoDB, 
 
 ---
 
+## 📑 Table of Contents
+
+- [🏛️ Project Architecture](#️-project-architecture)
+- [📂 Project Structure](#-project-structure)
+- [🚀 Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Step 1: Configure AWS Credentials](#step-1-configure-aws-credentials)
+  - [Step 2: Provision Infrastructure with Terraform](#step-2-provision-infrastructure-with-terraform)
+  - [Step 3: Configure and Deploy with Ansible](#step-3-configure-and-deploy-with-ansible)
+  - [Step 4: Access Your Application](#step-4-access-your-application)
+  - [Step 5: Verify](#step-5-verify)
+- [🧹 Cleaning Up](#-cleaning-up)
+
+---
+
 ## 🏛️ Project Architecture
 
 The infrastructure consists of two main components within a custom Virtual Private Cloud (VPC):
@@ -130,6 +145,8 @@ export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_KEY"
     ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i ansible/inventory.ini ansible/dbserver_playbook.yml
     ```
     This playbook installs and configures MongoDB on the private EC2 instance.
+    ![Ansible DB Playbook](Screenshots/10.png)
+    ![Ansible DB Playbook Completed](Screenshots/11.png)
 
 3.  **Configure Web Server & Deploy App:**
     Run the `webserver_playbook.yml`.
@@ -137,6 +154,7 @@ export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_KEY"
     ANSIBLE_CONFIG=./ansible.cfg ansible-playbook -i ansible/inventory.ini ansible/webserver_playbook.yml
     ```
     This playbook installs Node.js, Nginx, PM2, clones the MERN application code, installs dependencies, and starts the application server.
+    ![Ansible WebServer Playbook](Screenshots/12.png)
 
 ### Step 4: Access Your Application
 
@@ -146,12 +164,19 @@ Your MERN application is now live!
     ```
     http://35.90.101.247 # Replace 35.90.101.247 with <WEB_SERVER_PUBLIC_IP>
     ```
+    ![Frontend](Screenshots/13.png)
+
 *   **Backend API Endpoint (Example):** You can test a backend endpoint directly at:
     ```
     http://35.90.101.247:3001/trip # Replace 35.90.101.247 with <WEB_SERVER_PUBLIC_IP>
     ```
-
+    ![Backend](Screenshots/14.png)
 ---
+
+### Step 5: Verify
+
+Added a new trip as Featured which shows as green in Frontend
+![Backend](Screenshots/15.png)
 
 ## 🧹 Cleaning Up
 
@@ -164,4 +189,3 @@ To avoid ongoing charges from AWS, you can destroy all the resources created by 
     ```
 
 This will terminate the EC2 instances and delete the VPC, subnets, and all other associated resources.
-```
