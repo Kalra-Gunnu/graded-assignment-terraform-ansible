@@ -3,7 +3,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-# 1. VPC and Networking
+# 1. VPC Creation
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -11,6 +11,7 @@ resource "aws_vpc" "main" {
   tags                 = { Name = "GUN_ASSIGNMENT_VPC" }
 }
 
+# 2. Public Subnet
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -19,6 +20,7 @@ resource "aws_subnet" "public" {
   tags                    = { Name = "GUN_ASSIGNMENT_Public_Subnet" }
 }
 
+# 3. Private Subnet
 resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.2.0/24"
@@ -26,11 +28,13 @@ resource "aws_subnet" "private" {
   tags              = { Name = "GUN_ASSIGNMENT_Private_Subnet" }
 }
 
+# 4. Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "GUN_ASSIGNMENT_IGW" }
 }
 
+# 5. Route Tables
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main.id
   route {
@@ -40,15 +44,18 @@ resource "aws_route_table" "public_rt" {
   tags = { Name = "GUN_ASSIGNMENT_Public_RT" }
 }
 
+# 6. Route Table Associations
 resource "aws_route_table_association" "public_assoc" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public_rt.id
 }
 
+# 7. Elastic IP
 resource "aws_eip" "nat" {
   domain = "vpc"
 }
 
+# 8. NAT Gateway
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public.id
@@ -56,6 +63,7 @@ resource "aws_nat_gateway" "nat" {
   tags          = { Name = "GUN_ASSIGNMENT_NAT_Gateway" }
 }
 
+# 9. Private Route Table
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.main.id
   route {
@@ -65,12 +73,13 @@ resource "aws_route_table" "private_rt" {
   tags = { Name = "GUN_ASSIGNMENT_Private_RT" }
 }
 
+# 10. Private Route Table Association
 resource "aws_route_table_association" "private_assoc" {
   subnet_id      = aws_subnet.private.id
   route_table_id = aws_route_table.private_rt.id
 }
 
-# 2. Security Groups
+# 11. Web Security Group
 resource "aws_security_group" "web_sg" {
   name        = "web-server-sg"
   description = "Allow Web and SSH traffic"
@@ -103,6 +112,7 @@ resource "aws_security_group" "web_sg" {
   tags = { Name = "Web_SG" }
 }
 
+# 12. DB Security Group
 resource "aws_security_group" "db_sg" {
   name        = "db-server-sg"
   description = "Allow traffic from web server to MongoDB"
@@ -130,7 +140,7 @@ resource "aws_security_group" "db_sg" {
   tags = { Name = "DB_SG" }
 }
 
-# 3. EC2 Instances
+# 13. web_server EC2 Instance
 resource "aws_instance" "web_server" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
@@ -140,6 +150,7 @@ resource "aws_instance" "web_server" {
   tags                        = { Name = "GUN_ASSIGNMENT_Web_Server" }
 }
 
+# 14. db_server EC2 Instance
 resource "aws_instance" "db_server" {
   ami                    = var.ami_id
   instance_type          = var.instance_type

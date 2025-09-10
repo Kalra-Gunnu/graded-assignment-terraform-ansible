@@ -12,7 +12,7 @@
         name: gnupg
         state: present
 
-    # --- START OF DEPENDENCY TASKS ---
+    # --- DEPENDENCY TASKS ---
     - name: Download libssl1.1 dependency
       get_url:
         url: http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
@@ -22,8 +22,8 @@
     - name: Install libssl1.1 dependency
       apt:
         deb: /tmp/libssl1.1.deb
-    # --- END OF DEPENDENCY TASKS ---
 
+    # --- Mongodb Installation and Configuration ---
     - name: Import MongoDB public GPG Key
       apt_key:
         url: https://www.mongodb.org/static/pgp/server-6.0.asc

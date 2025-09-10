@@ -5,16 +5,16 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
+# Input Variable
 variable "my_ip" {
   description = "Your public IP address for SSH access. Find it by searching 'what is my IP'."
   type        = string
-  // No default: Terraform will ask you for this value.
 }
 
+# Input Variable
 variable "key_name" {
   description = "The name of the EC2 key pair you created in the AWS console for SSH."
   type        = string
-  // No default: Terraform will ask you for this value.
 }
 
 variable "instance_type" {
