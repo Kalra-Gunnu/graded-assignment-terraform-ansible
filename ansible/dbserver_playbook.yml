@@ -12,7 +12,7 @@
         name: gnupg
         state: present
 
-    # --- START OF NEW TASKS ---
+    # --- START OF DEPENDENCY TASKS ---
     - name: Download libssl1.1 dependency
       get_url:
         url: http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
@@ -22,7 +22,7 @@
     - name: Install libssl1.1 dependency
       apt:
         deb: /tmp/libssl1.1.deb
-    # --- END OF NEW TASKS ---
+    # --- END OF DEPENDENCY TASKS ---
 
     - name: Import MongoDB public GPG Key
       apt_key:
@@ -37,7 +37,9 @@
 
     - name: Install MongoDB
       apt:
-        name: mongodb-org
+        name:
+          - mongodb-org
+          - mongodb-mongosh
         state: present
         update_cache: yes
 
@@ -53,6 +55,70 @@
         name: mongod
         state: started
         enabled: yes
+
+    - name: Wait for MongoDB to be up
+      wait_for:
+        host: 127.0.0.1
+        port: 27017
+        delay: 5
+        timeout: 60
+
+    # Step 1: Create admin user without auth
+    - name: Create MongoDB admin user (mongosh)
+      command: >
+        mongosh admin --eval 'db.createUser({
+          user:"admin",
+          pwd:"admin123",
+          roles:[
+            {role:"userAdminAnyDatabase",db:"admin"},
+            {role:"dbAdminAnyDatabase",db:"admin"},
+            {role:"readWriteAnyDatabase",db:"admin"}
+          ]})'
+      register: admin_user_result
+      failed_when: false
+
+    # Step 2: Enable authentication
+    - name: Enable MongoDB authentication
+      lineinfile:
+        path: /etc/mongod.conf
+        regexp: '^#?security:'
+        line: 'security:'
+        state: present
+
+    - name: Add authorization to mongod.conf
+      lineinfile:
+        path: /etc/mongod.conf
+        regexp: '^#?  authorization:'
+        line: '  authorization: enabled'
+        insertafter: '^security:'
+        state: present
+      notify: Restart mongod
+
+    - name: Restart mongod after enabling auth
+      systemd:
+        name: mongod
+        state: restarted
+      when: admin_user_result is succeeded
+
+    - name: Wait for MongoDB to be up again
+      wait_for:
+        host: 127.0.0.1
+        port: 27017
+        delay: 5
+        timeout: 60
+
+    # Step 3: Create app user with admin credentials
+    - name: Create MongoDB app user (mongosh)
+      command: >
+        mongosh admin -u admin -p admin123 --authenticationDatabase admin
+        --eval 'if (db.getSiblingDB("travel-memory").getUser("appuser") === null) { 
+              db.getSiblingDB("travel-memory").createUser({
+                user:"appuser", 
+                pwd:"appuser123", 
+                roles:[{role:"readWrite", db:"travel-memory"}]
+              }) 
+            }'
+      when: admin_user_result is succeeded
 
   handlers:
     - name: Restart mongod

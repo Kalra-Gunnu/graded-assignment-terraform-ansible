@@ -1,3 +1,4 @@
+---
 - name: Configure Web Server and Deploy MERN App
   hosts: webserver
   become: yes
@@ -18,9 +19,10 @@
         update_cache: yes
 
     - name: Add Node.js repository
-      shell: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      shell: curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+      become: yes
 
-    - name: Install Node.js and NPM
+    - name: Install Node.js and npm
       apt:
         name: nodejs
         state: present
@@ -37,12 +39,17 @@
         force: yes
       become: no
 
+    # --- Backend ---
     - name: Install backend dependencies
       npm:
         path: /home/ubuntu/TravelMemory/backend
       become: no
 
-
+    # --- Frontend ---
+    - name: Install frontend dependencies
+      npm:
+        path: /home/ubuntu/TravelMemory/frontend
+      become: no
 
     - name: Remove hardcoded localhost:3001 from url.js
       replace:
@@ -59,8 +66,6 @@
           REACT_APP_BACKEND_URL=/trip
       become: no
 
-
-
     - name: Build React app
       command: npm run build
       args:
@@ -76,6 +81,7 @@
         mode: '0755'
         remote_src: yes
 
+
     - name: Configure Nginx to serve React frontend and proxy API
       copy:
         dest: /etc/nginx/sites-available/travelmemory
@@ -87,7 +93,7 @@
             index index.html index.htm;
 
             location /trip/ {
-              proxy_pass http://localhost:3001/trip/;
+              proxy_pass http://localhost:3001/;
               proxy_http_version 1.1;
               proxy_set_header Upgrade $http_upgrade;
               proxy_set_header Connection 'upgrade';
@@ -107,11 +113,19 @@
         rm -f /etc/nginx/sites-enabled/default
       notify: Reload Nginx
 
+    # --- Backend Configuration ---
     - name: Create .env file for the backend
       template:
         src: templates/.env.j2
         dest: /home/ubuntu/TravelMemory/backend/.env
       become: no
+
+    - name: Wait for MongoDB to be available
+      wait_for:
+        host: "{{ hostvars[groups['dbserver'][0]]['inventory_hostname'] }}"
+        port: 27017
+        delay: 5
+        timeout: 60
 
     - name: Ensure backend listens on 0.0.0.0
       replace:

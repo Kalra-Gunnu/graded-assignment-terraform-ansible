@@ -114,13 +114,13 @@ resource "aws_security_group" "db_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.web_sg.id]
   }
-  # This is CORRECT for the web server
-ingress {
-  from_port   = 22
-  to_port     = 22
-  protocol    = "tcp"
-  cidr_blocks = ["${var.my_ip}/32"] // Allow SSH from your IP address
-}
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    security_groups = [aws_security_group.web_sg.id]
+  }
   egress {
     from_port   = 0
     to_port     = 0
